@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: shopease-backend
+  namespace: shopease
+  labels:
+    app: shopease-backend
+spec:
+  type: ClusterIP
+  selector:
+    app: shopease-backend
+  ports:
+    - name: http
+      port: 3001
+      targetPort: 3001

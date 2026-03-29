@@ -1,0 +1,41 @@
+# ──────────────────────────────────────────────────────────────────────────────
+#  Nginx Ingress — routes external traffic into the cluster
+#
+#  Prerequisites:
+#    helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+#    helm install ingress-nginx ingress-nginx/ingress-nginx \
+#      --namespace ingress-nginx --create-namespace
+#
+#  After applying, get the public IP:
+#    kubectl get svc -n ingress-nginx ingress-nginx-controller
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shopease-ingress
+  namespace: shopease
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          # API traffic → backend Service
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: shopease-backend
+                port:
+                  number: 3001
+
+          # All other traffic → frontend Service (React app)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: shopease-frontend
+                port:
+                  number: 80

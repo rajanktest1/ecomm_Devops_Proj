@@ -1,0 +1,60 @@
+# ──────────────────────────────────────────────────────────────────────────────
+#  Frontend Deployment
+#  Image placeholders replaced by CI/CD (same as backend deployment).
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shopease-frontend
+  namespace: shopease
+  labels:
+    app: shopease-frontend
+spec:
+  replicas: 2                  # Stateless — can scale horizontally
+  selector:
+    matchLabels:
+      app: shopease-frontend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0        # Zero-downtime deploys
+  template:
+    metadata:
+      labels:
+        app: shopease-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: __ACR_LOGIN_SERVER__/shopease-frontend:__IMAGE_TAG__
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: nginx-config

@@ -1,0 +1,130 @@
+# ──────────────────────────────────────────────────────────────────────────────
+#  CD — Continuous Deployment
+#  Triggers on every push to main (after CI passes).
+#  Builds images, pushes to ACR, and rolls out to AKS.
+#
+#  Required GitHub Repository Secrets:
+#    AZURE_CREDENTIALS     — JSON from:
+#                            az ad sp create-for-rbac \
+#                              --name "shopease-gh-actions" \
+#                              --role contributor \
+#                              --scopes /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RG_NAME> \
+#                              --sdk-auth
+#    ACR_LOGIN_SERVER      — e.g. acrshopeaseprod.azurecr.io
+#                            (terraform output acr_login_server)
+#    AKS_CLUSTER_NAME      — e.g. aks-shopease-prod
+#                            (terraform output aks_cluster_name)
+#    AZURE_RESOURCE_GROUP  — e.g. rg-shopease-prod
+#                            (terraform output resource_group_name)
+# ──────────────────────────────────────────────────────────────────────────────
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+# Prevent concurrent deployments
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  deploy:
+    name: Build → Push → Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── Authenticate to Azure ───────────────────────────────────────────────
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # ── Log in to Azure Container Registry ─────────────────────────────────
+      - name: ACR Login
+        run: az acr login --name ${{ secrets.ACR_LOGIN_SERVER }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Build & push backend ────────────────────────────────────────────────
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/backend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.ACR_LOGIN_SERVER }}/shopease-backend:${{ env.IMAGE_TAG }}
+            ${{ secrets.ACR_LOGIN_SERVER }}/shopease-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── Build & push frontend ───────────────────────────────────────────────
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.ACR_LOGIN_SERVER }}/shopease-frontend:${{ env.IMAGE_TAG }}
+            ${{ secrets.ACR_LOGIN_SERVER }}/shopease-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── Configure kubectl for AKS ───────────────────────────────────────────
+      - name: Get AKS credentials
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          cluster-name:   ${{ secrets.AKS_CLUSTER_NAME }}
+
+      # ── Apply manifests with image placeholders substituted ─────────────────
+      - name: Substitute image tags in manifests
+        run: |
+          ACR="${{ secrets.ACR_LOGIN_SERVER }}"
+          TAG="${{ env.IMAGE_TAG }}"
+          sed -i \
+            -e "s|__ACR_LOGIN_SERVER__|${ACR}|g" \
+            -e "s|__IMAGE_TAG__|${TAG}|g" \
+            k8s/backend/deployment.yaml \
+            k8s/frontend/deployment.yaml
+
+      - name: Apply namespace and config
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/frontend/configmap.yaml
+
+      - name: Apply backend manifests
+        run: |
+          kubectl apply -f k8s/backend/pvc.yaml
+          kubectl apply -f k8s/backend/deployment.yaml
+          kubectl apply -f k8s/backend/service.yaml
+
+      - name: Apply frontend manifests
+        run: |
+          kubectl apply -f k8s/frontend/deployment.yaml
+          kubectl apply -f k8s/frontend/service.yaml
+
+      - name: Apply ingress
+        run: kubectl apply -f k8s/ingress.yaml
+
+      # ── Wait for rollout to complete ────────────────────────────────────────
+      - name: Wait for backend rollout
+        run: kubectl rollout status deployment/shopease-backend -n shopease --timeout=120s
+
+      - name: Wait for frontend rollout
+        run: kubectl rollout status deployment/shopease-frontend -n shopease --timeout=120s
+
+      # ── Print app URL ───────────────────────────────────────────────────────
+      - name: Get app URL
+        run: |
+          echo "Deployment complete. Getting public IP..."
+          kubectl get ingress shopease-ingress -n shopease -o wide

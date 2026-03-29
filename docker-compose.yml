@@ -1,0 +1,49 @@
+version: "3.9"
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  ShopEase — Local development / smoke-test with Docker Compose
+#
+#  Usage:
+#    docker compose up --build          # start everything
+#    docker compose down -v             # stop + delete volume
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Backend (Node.js + Express + SQLite) ─────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: shopease-backend
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+    volumes:
+      - sqlite_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ── Frontend (React → Nginx) ──────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: shopease-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  sqlite_data:
+    name: shopease_sqlite_data

@@ -1,0 +1,26 @@
+# ──────────────────────────────────────────────────────────────────────────────
+#  ServiceMonitor — tells Prometheus to scrape the ShopEase backend's
+#  /api/metrics endpoint every 15 seconds.
+#
+#  Requires kube-prometheus-stack CRDs to be installed first.
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: shopease-backend
+  namespace: monitoring        # Must live in the same namespace as Prometheus
+  labels:
+    app: shopease-backend
+    release: prometheus        # Must match Prometheus' serviceMonitorSelector label
+spec:
+  namespaceSelector:
+    matchNames:
+      - shopease               # Scrape the Service in the shopease namespace
+  selector:
+    matchLabels:
+      app: shopease-backend    # Matches the label on the backend Service
+  endpoints:
+    - port: http               # Named port on the backend Service (port 3001)
+      path: /api/metrics
+      interval: 15s
+      scrapeTimeout: 10s

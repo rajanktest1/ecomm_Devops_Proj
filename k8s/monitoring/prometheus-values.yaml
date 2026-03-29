@@ -1,0 +1,131 @@
+# ──────────────────────────────────────────────────────────────────────────────
+#  kube-prometheus-stack Helm values
+#
+#  Install / upgrade:
+#    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#    helm repo update
+#
+#    helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+#      --namespace monitoring --create-namespace \
+#      --values k8s/monitoring/prometheus-values.yaml \
+#      --wait
+#
+#  Access Grafana (default credentials admin / shopease-admin — change in prod!):
+#    kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
+#    Open http://localhost:3000
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Prometheus ────────────────────────────────────────────────────────────────
+prometheus:
+  prometheusSpec:
+    # Watch ServiceMonitors in ALL namespaces (not just monitoring)
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+
+    # Watch PodMonitors in ALL namespaces
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector: {}
+
+    retention: 15d
+
+    # Persist metrics to an Azure Disk PVC
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: managed-csi
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+
+# ── Grafana ───────────────────────────────────────────────────────────────────
+grafana:
+  enabled: true
+
+  # IMPORTANT: change this password before any public exposure
+  adminPassword: "shopease-admin-change-me"
+
+  service:
+    type: LoadBalancer   # Exposes Grafana publicly; switch to ClusterIP + port-forward for private access
+
+  persistence:
+    enabled: true
+    storageClassName: managed-csi
+    size: 2Gi
+
+  # ── Auto-provision dashboards from grafana.com ──────────────────────────────
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: shopease
+          orgId: 1
+          folder: "ShopEase"
+          type: file
+          disableDeletion: false
+          options:
+            path: /var/lib/grafana/dashboards/shopease
+
+  dashboards:
+    shopease:
+      # Node.js Application Dashboard
+      nodejs-app:
+        gnetId: 11159
+        revision: 1
+        datasource: Prometheus
+
+      # Kubernetes Cluster Summary
+      k8s-cluster:
+        gnetId: 6417
+        revision: 1
+        datasource: Prometheus
+
+      # Nginx Ingress Controller
+      nginx-ingress:
+        gnetId: 9614
+        revision: 1
+        datasource: Prometheus
+
+      # Kubernetes Deployments
+      k8s-deployments:
+        gnetId: 8588
+        revision: 1
+        datasource: Prometheus
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ── AlertManager ──────────────────────────────────────────────────────────────
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: managed-csi
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 1Gi
+
+# ── Node Exporter (per-node OS metrics) ───────────────────────────────────────
+nodeExporter:
+  enabled: true
+
+# ── kube-state-metrics (Kubernetes object metrics) ────────────────────────────
+kubeStateMetrics:
+  enabled: true

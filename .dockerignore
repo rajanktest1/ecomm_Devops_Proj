@@ -1,0 +1,23 @@
+# ── Version control ───────────────────────────────────────────────────────────
+.git/
+.gitignore
+
+# ── Dependencies (rebuilt inside the image) ───────────────────────────────────
+**/node_modules/
+
+# ── Build output ──────────────────────────────────────────────────────────────
+frontend/dist/
+
+# ── Database files (mounted as Docker volume / PVC) ───────────────────────────
+data/
+
+# ── DevOps / tooling (not needed at runtime) ──────────────────────────────────
+terraform/
+k8s/
+.github/
+docker-compose*.yml
+*.md
+
+# ── OS noise ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

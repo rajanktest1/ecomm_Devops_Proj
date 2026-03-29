@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sqlite-pvc
+  namespace: shopease
+spec:
+  accessModes:
+    - ReadWriteOnce          # SQLite is single-writer; must stay on one node
+  storageClassName: managed-csi  # Azure Disk — provided by AKS by default
+  resources:
+    requests:
+      storage: 2Gi
