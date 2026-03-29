@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ShopEase — Simple E-Commerce App
 
 A full-stack e-commerce demo with **React** frontend, **Node.js/Express** backend, and **SQLite** database.
@@ -116,3 +117,7 @@ CREATE TABLE cart_items (
   quantity    INTEGER NOT NULL CHECK (quantity > 0)
 );
 ```
+=======
+# ecomm_Devops_Proj
+A full-stack e-commerce demo proj for Devops practice
+>>>>>>> 155c24045993a48ae0d81342eb98436f56abf29a
