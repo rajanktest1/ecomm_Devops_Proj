@@ -5,7 +5,7 @@
 # ── Environment & secrets ──────────────────────────────────────────────────────
 .env
 .env.*
-!.env.example          # allow a safe example template to be committed
+!.env.example          # allow the safe example template to be committed
 *.pem
 *.key
 *.cert
@@ -21,7 +21,7 @@ pnpm-debug.log*
 .npm
 .yarn/
 .pnp.*
-package-lock.json    # uncomment if you prefer to track lockfiles (recommended)
+# package-lock.json is intentionally tracked — it pins exact dependency versions
 
 # ── Build output ───────────────────────────────────────────────────────────────
 frontend/dist/
@@ -38,23 +38,36 @@ data/
 *.sqlite3
 
 # ── Terraform ─────────────────────────────────────────────────────────────────
-# State files contain plain-text secrets (passwords, keys, connection strings)
+# .terraform/ — downloaded provider binaries (large, machine-specific)
+.terraform/
 terraform/.terraform/
-terraform/.terraform.lock.hcl
-terraform/terraform.tfstate
-terraform/terraform.tfstate.*
-terraform/terraform.tfstate.backup
+
+# .terraform.lock.hcl — SHOULD be committed (pins provider versions like package-lock.json)
+# It is NOT ignored here intentionally.
+
+# State files contain plain-text resource IDs, secrets, and connection strings
+terraform.tfstate
+terraform.tfstate.*
+terraform.tfstate.backup
+terraform/**/*.tfstate
+terraform/**/*.tfstate.*
+terraform/**/*.tfstate.backup
+
+# crash logs produced by terraform
+crash.log
+crash.*.log
+
 # Variable override files may contain real credentials
-terraform/*.tfvars
-terraform/*.tfvars.json
-# Exception: commit the example tfvars template
+*.tfvars
+*.tfvars.json
+# Exception: commit the documented example template
 !terraform/terraform.tfvars.example
 
 # ── Docker ─────────────────────────────────────────────────────────────────────
 .docker/
 
 # ── Kubernetes ─────────────────────────────────────────────────────────────────
-# Never commit kubeconfig or generated secret manifests
+# Never commit kubeconfig — it contains cluster credentials
 kubeconfig
 *.kubeconfig
 k8s/**/secret*.yaml

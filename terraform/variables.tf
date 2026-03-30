@@ -16,12 +16,6 @@ variable "location" {
   default     = "East US 2"
 }
 
-variable "node_count" {
-  description = "Initial number of AKS worker nodes. Auto-scaling adjusts between min/max."
-  type        = number
-  default     = 2
-}
-
 variable "node_vm_size" {
   description = "VM SKU for AKS worker nodes."
   type        = string
@@ -31,5 +25,5 @@ variable "node_vm_size" {
 variable "aks_kubernetes_version" {
   description = "Kubernetes version for the AKS cluster."
   type        = string
-  default     = "1.29"
+  default     = "1.32"
 }

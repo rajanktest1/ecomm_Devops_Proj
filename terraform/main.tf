@@ -44,13 +44,14 @@ resource "azurerm_kubernetes_cluster" "aks" {
 
   default_node_pool {
     name                = "system"
-    node_count          = var.node_count
     vm_size             = var.node_vm_size
     os_disk_size_gb     = 30
     type                = "VirtualMachineScaleSets"   # required for autoscaling
     enable_auto_scaling = true
     min_count           = 1
     max_count           = 5
+    # node_count is intentionally omitted — the cluster autoscaler manages it
+    # when enable_auto_scaling = true; setting both causes a conflict.
   }
 
   # System-assigned managed identity — no service principal rotation needed
